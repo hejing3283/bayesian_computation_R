@@ -1,0 +1,127 @@
+chapter 04 multiparameter model
+=====================
+- model 1: normal data with both parameters unknow 
+ with closed form of posterior, marginal and conditional density funcitons
+	exmample: completion time of marathon, 20 runners, y1 to y20 in minutes, normal( mean, sigma). 
+	Simulate this posterior distribution by simulation. 
+```
+require(LearnBayes)
+data( marathontimes )
+attach( marathontimes )	
+str(marathontimes)
+d = mycontour( normchi2post, c(220, 330, 500, 9000), time, xlab = 'mean', ylab = 'variance')
+```
+summerize the posterior distribution by simulation 
+1st, simulate sigma^2 from scaled inverse chisq distribution
+2nd, simulate mu from normal, 
+3rd, simulate a value of (mu, sigma^2) form the joint posterior 
+```
+
+n = length( time )
+S = sum( (time - mean(time)) ^2 )
+sigma2 = S / rchisq(1000, n -1 )
+mu = rnorm( 1000, mean = mean( time ), sd = sqrt( sigma2 )/ sqrt(n))
+points( mu, sigma2 )
+
+### inference of mu
+conf = 0.05 
+quantile( mu, c( conf/2, 1 - conf/2))
+
+## inference of sigma
+quantile( sqrt( sigma2 ), c( conf/2, 1 - conf/2))
+
+- model 2: Multinomial model
+example: survery by CBS for presidential preference by 1447 adults.
+Dirichlet posterior, with uniform prior and multinomial sampling likelihood
+```
+alpha = c( 728, 584, 138) ### 
+theta = rdirichlet( 1000, alpha)
+hist( theta[,1] - theta[,2], main = "")
+
+require(LearnBayes)
+data(election.2008)
+attach(election.2008)
+summary(election.2008)
+prob.Obama = function( j )
+{
+	### 5000 number of simulations required 
+	p = rdirichlet( 5000, 500 * c(M.pct[j] ,O.pct[j], 100 - M.pct[j] - O.pct[j]) / 100 + 1) 
+	mean(p[,2] > p[,1]) 
+}
+Obama.win.probs = sapply(1:51, prob.Obama)
+
+sim.election = function() 
+{
+	winner  = rbinom(51, 1, Obama.win.probs)
+	sum(EV*winner)
+}
+sim.EV = replicate(1000, sim.election() )
+hist( sim.EV, min( sim.EV): max(sim.EV), col = 'blue')
+abline( v = 365, lwd = 3) ## Obama received 365 votes
+text( 375, 30, 'Actual \n Obama \n Total')
+```
+
+
+== > model 3 Bioassay experiment
+each group has ni sample, given xi dose of drugs, yi of them dead, there are 4 such groups.
+the probability of death for each group is pi, pi follows logistic model. 
+
+x = c( -.86, -.3, -.05, .73)
+n = c(5, 5, 5, 5)
+y = c(0, 1, 3, 5)
+data = cbind( x, n, y)
+### maximum likelihood fitting 
+response = cbind( y, n-y )
+results = glm( response ~ x, family = binomial )
+summary( results )
+## the user have prior knowledge
+param.low = beta.select(list(p= .5, x = .2), list(p= .9, x=.5))
+param.low  
+param.high = beta.select(list(p= .5, x = .8), list(p= .9, x=.98))
+param.high
+## joint prior of (param.high, param.low)
+
+prior = rbind( c(-.7, 4.68, 1.12),
+			   c(0.6, 2.10, 0.74) )
+data.new = rbind( data, prior)
+### need to identifyt the aear which covers all the posterior, usually using Maximum likelihood.
+## posterior distribution
+mycontour( logisticpost, c(-3, 3, -1, 9), data.new, xlab = 'beta0', ylab = 'beta1')
+
+s = simcontour( logisticpost, c(-2, 3, -1, 11), data.new, 1000)
+points(s, cex = 0.7)
+plot( density( s$y), xlab = 'beta1')
+
+### LD50 = theta =  - beta0 / beta1
+theta = -s$x / s$y
+hist( theta, xlab = 'LD-50', breaks = 20)
+quantile(theta, c(.025, .975) )
+
+==> Model 4 Comparing 2 propotions 
+## dependent prior ( howardprior)
+
+sigma = c(2, 1, .5, .25); ## association parameter
+plo = .0001; phi = .9999
+par( mfrow = c(2,2) )
+for( i in 1:4 )
+{
+	mycontour(howardprior, c(plo, phi, plo, phi), c(1,1,1,1, sigma[i]), main = paste("sigma=", as.character(sigma[i])), xlab = 'p1', ylab = 'p2')
+}
+
+### posterior using an example dataset of (s = 3, f = 15, n = 18); (s= 7, f = 5, n = 12)
+
+sigma = c(2, 1, .5, .25)
+par( mfrow = c(2,2) )
+for ( i in 1:4)
+{
+	mycontour( howardprior, c( plo, phi, plo, phi), c( 1+ 3, 1+ 15, 1+7, 1+5, sigma[i]), main = paste("sigma=", as.character(sigma[i])), xlab = 'p1', ylab = 'p2')
+	lines(c(0,1), c(0,1))
+}
+### compute probability the parameter space using simulated sample 
+
+nsim = 1000 
+s = simcontour( howardprior, c(plo, phi, plo, phi), c( 1+3, 1+15, 1+7, 1+5,2), nsim)
+sum(s$x > s$y) / nsim
+
+## Homework 3, 8
+#### END OF CHAPTER 04 

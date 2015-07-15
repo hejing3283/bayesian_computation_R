@@ -1,0 +1,68 @@
+Chapter 05 introduction to bayesian computation 
+----------------
+### How to get posterior:
+  + expressible form of posterior using R functions directly. 
+in this case, usually the model if computed by conjugate prior, or exponential familiy. we summary the posterior using simulated sample.
+  + brute-force by computing a grid of points and then approximate the continious posterior by a discrete posterior that is concentrated on the values of the grid.Good for one / 2 paramters model
+  + more sophisticated ones. based on the behavior of the posterior distribution about it's mode. MC, SIR sampling methods introduced 
+
+### ==> Computing integrals
+How to summarize multivariate probability distribution to perform inference about functions of $\theta$. We use Integrals to get marginal distribution of parameters of intersets. 
+
+### ==> Setting up R exmple
+Normal model with $\theta$ =  ($\mu$, log$\sigma$)
+```{r}
+mylogposterior = function( theta, data)
+{
+  ## [ statment that compute the log density]
+  n = length(data)
+  mu = theta[1]; simga = exp(theta[2])
+  logf = function(y, mu, sigma)
+  {
+    dnorm(y, mean = mu, sd = sigma, log = T)
+  }
+  ## prior mu ~ N(10, 20)
+  val = dnorm(mu, mean = 10, sd = 20, log = T) +  sum(logf( data, mu, sigma)) 
+  reutnr(val)
+}
+
+```
+### ==> Beta-Binomial model for overdispersion
+Cancer mortality data, cancer deaths $y_i$ and total risk people $n_i$. Using a simple binomial model cannot capture the variance, then consider a beta-binomial model with mean $\eta$, and precision **K**
+** Need to refer to proof of the posterior ** 
+** Need to refer to ways to calculate Jabobian for transformation **
+
+```{r}
+
+betabinexch0 = function( theta, data)
+  {
+    eta = theta[1]
+    K = theta[2]
+    y = data[,1]
+    n = data[,2]
+    N = length(y)
+    logf = function( y, n, K, eta) lbeta(K * eta + y, K * (1 + eta) + n -y ) - lbeta( K * eta, K * (1 - eta))
+    val = sum(logf(y, n, K, eta))
+    val = val - 2 * log( 1 + K ) - log(eta) - log(1-eta)
+    return( val )
+  }
+require(LearnBayes)
+data(cancermortality)
+mycontour( betabinexch0, c(.0001, .003, 1, 20000), cancermortality, xlab = 'eta', ylab = 'K')
+
+## transform parameter
+betabinexch = function( theta, data){
+  eta = exp( theta[1]) / (1 + exp(theta[1]))
+  K = exp(theta[2])
+  y = data[,1]
+  n = data[,2]
+  N = length(y)
+  logf = function(y, n, K, eta) lbeta(K * eta + y, K * (1 - eta) + n - y ) - lbeta(K * eta, K * (1-eta))
+  val = sum(logf(y, n, K, eta))
+  val = val + theta[2] - 2 * log(1+exp(theta[2]))
+  return(val)
+}
+mycontour( betabinexch, c( -8, -4.5, 3, 16.5), cancermortality, xlab = "logit eta", ylab = 'log K')
+```
+
+### ==> Approximations based on Posterior Modes
